@@ -283,7 +283,7 @@ static void mainloop(void)
 			zoom_page(prows ? zoom * srows / prows : zoom);
 			break;
 		case 'r':
-			rotate = getcount(0);
+			rotate = (rotate + 90) % 360;
 			if (!loadpage(num))
 				srow = prow;
 			break;
