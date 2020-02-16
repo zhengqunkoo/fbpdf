@@ -226,9 +226,6 @@ static void mainloop(void)
 		case 'o':
 			numdiff = num - getcount(num);
 			break;
-		case 'Z':
-			zoom_def = getcount(zoom);
-			break;
 		case 'i':
 			printinfo();
 			break;
@@ -289,11 +286,16 @@ static void mainloop(void)
 			if (!loadpage(num + numdiff))
 				srow = prow;
 			break;
-		case 'z':
-			zoom_page(getcount(zoom_def));
+		case '+':
+			zoom++;
+			zoom_page(zoom);
 			break;
-		case 'w':
-			zoom_page(pcols ? zoom * scols / pcols : zoom);
+		case '-':
+			zoom--;
+			zoom_page(zoom);
+			break;
+		case '=':
+			zoom_page(zoom_def);
 			break;
 		case 'W':
 			if (lmargin() < rmargin())
