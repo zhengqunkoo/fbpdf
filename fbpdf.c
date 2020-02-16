@@ -137,7 +137,7 @@ static int getcount(int def)
 
 static void printinfo(void)
 {
-	printf("\x1b[H");
+	printf("\x1b[%d;%dH", srows, 0);
 	printf("FBPDF:     file:%s  page:%d(%d)  zoom:%d%% \x1b[K\r",
 		filename, num, doc_pages(doc), zoom * 10);
 	fflush(stdout);
