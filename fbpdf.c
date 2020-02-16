@@ -36,7 +36,9 @@
 #define ISMARK(x)	(isalpha(x) || (x) == '\'' || (x) == '`')
 
 static struct doc *doc;
-static fbval_t *pbuf;		/* current page */
+static fbval_t **pbufs;		/* current page(s) */
+static int np = 2;		/* maximum number of pages to load */
+static int lp;			/* actual number of pages to load */
 static int srows, scols;	/* screen dimentions */
 static int prows, pcols;	/* current page dimensions */
 static int prow, pcol;		/* page position */
@@ -56,16 +58,18 @@ static int invert;		/* invert colors? */
 
 static void draw(void)
 {
-	int i;
+	int i, j;
 	fbval_t *rbuf = malloc(scols * sizeof(rbuf[0]));
 	for (i = srow; i < srow + srows; i++) {
 		int cbeg = MAX(scol, pcol);
 		int cend = MIN(scol + scols, pcol + pcols);
 		memset(rbuf, 0, scols * sizeof(rbuf[0]));
-		if (i >= prow && i < prow + prows && cbeg < cend) {
-			memcpy(rbuf + cbeg - scol,
-				pbuf + (i - prow) * pcols + cbeg - pcol,
-				(cend - cbeg) * sizeof(rbuf[0]));
+		for (j = 0; j < lp; j++) {	/* lp must be already updated by loadpage */
+			if (i >= prow + prows * j && i < prow + prows * (j+1) && cbeg < cend) {
+				memcpy(rbuf + cbeg - scol,
+					pbufs[j] + (i - prow - prows * j) * pcols + cbeg - pcol,
+					(cend - cbeg) * sizeof(rbuf[0]));
+			}
 		}
 		fb_set(i - srow, 0, rbuf, scols);
 	}
@@ -74,15 +78,22 @@ static void draw(void)
 
 static int loadpage(int p)
 {
-	int i;
+	int i, j;
+	int xp;		/* number of pages to be loaded that exceeds number of pages of document */
 	if (p < 1 || p > doc_pages(doc))
 		return 1;
+	lp = np;
+	xp = (p + np - 1) - doc_pages(doc);
+	if (xp > 0)
+		lp -= xp;	/* if any excess pages, then do not load this excess number of pages */
 	prows = 0;
-	free(pbuf);
-	pbuf = doc_draw(doc, p, zoom, rotate, &prows, &pcols);
+	pbufs = malloc(lp * sizeof(fbval_t*));
+	for (j = 0; j < lp; j++)
+		pbufs[j] = doc_draw(doc, p+j, zoom, rotate, &prows, &pcols);
 	if (invert) {
-		for (i = 0; i < prows * pcols; i++)
-			pbuf[i] = pbuf[i] ^ 0xffffffff;
+		for (j = 0; j < lp; j++)
+			for (i = 0; i < prows * pcols; i++)
+				pbufs[j][i] = pbufs[j][i] ^ 0xffffffff;
 	}
 	prow = -prows / 2;
 	pcol = -pcols / 2;
@@ -185,7 +196,7 @@ static int rmargin(void)
 	int i, j;
 	for (i = 0; i < prows; i++) {
 		j = pcols - 1;
-		while (j > ret && pbuf[i * pcols + j] == FB_VAL(255, 255, 255))
+		while (j > ret && pbufs[0][i * pcols + j] == FB_VAL(255, 255, 255))
 			j--;
 		if (ret < j)
 			ret = j;
@@ -199,7 +210,7 @@ static int lmargin(void)
 	int i, j;
 	for (i = 0; i < prows; i++) {
 		j = 0;
-		while (j < ret && pbuf[i * pcols + j] == FB_VAL(255, 255, 255))
+		while (j < ret && pbufs[0][i * pcols + j] == FB_VAL(255, 255, 255))
 			j++;
 		if (ret > j)
 			ret = j;
@@ -212,6 +223,7 @@ static void mainloop(void)
 	int step = srows / PAGESTEPS;
 	int hstep = scols / PAGESTEPS;
 	int c;
+	int j;
 	term_setup();
 	signal(SIGCONT, sigcont);
 	loadpage(num);
@@ -348,6 +360,9 @@ static void mainloop(void)
 		scol = MAX(pcol - scols + MARGIN, MIN(pcol + pcols - MARGIN, scol));
 		draw();
 	}
+	for (j = 0; j < lp; j++)
+		free(pbufs[j]);
+	free(pbufs);
 	term_cleanup();
 }
 
@@ -356,7 +371,7 @@ static char *usage =
 
 int main(int argc, char *argv[])
 {
-	int i = 1;
+	int i;
 	if (argc < 2) {
 		printf(usage);
 		return 1;
@@ -390,7 +405,6 @@ int main(int argc, char *argv[])
 	else
 		mainloop();
 	fb_free();
-	free(pbuf);
 	if (doc)
 		doc_close(doc);
 	return 0;
