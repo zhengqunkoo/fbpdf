@@ -53,6 +53,7 @@ static int zoom_def = 15;	/* default zoom */
 static int rotate;
 static int count;
 static int invert;		/* invert colors? */
+static int toggleinfo = 1;	/* print info? */
 
 static void draw(void)
 {
@@ -218,6 +219,8 @@ static void mainloop(void)
 	srow = prow;
 	scol = -scols / 2;
 	draw();
+	if (toggleinfo)
+		printinfo();
 	while ((c = readkey()) != -1) {
 		if (c == 'q')
 			break;
@@ -230,8 +233,8 @@ static void mainloop(void)
 		case 'Z':
 			zoom_def = getcount(zoom);
 			break;
-		case 'i':
-			printinfo();
+		case CTRLKEY('n'):
+			toggleinfo = 1 - toggleinfo;
 			break;
 		case 27:
 			count = 0;
@@ -347,6 +350,8 @@ static void mainloop(void)
 		srow = MAX(prow - srows + MARGIN, MIN(prow + prows - MARGIN, srow));
 		scol = MAX(pcol - scols + MARGIN, MIN(pcol + pcols - MARGIN, scol));
 		draw();
+		if (toggleinfo)
+			printinfo();
 	}
 	term_cleanup();
 }
@@ -380,7 +385,6 @@ int main(int argc, char *argv[])
 			break;
 		}
 	}
-	printinfo();
 	if (fb_init())
 		return 1;
 	srows = fb_rows();
