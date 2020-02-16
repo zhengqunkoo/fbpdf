@@ -278,6 +278,11 @@ static void mainloop(void)
 			if (!loadpage(getcount(doc_pages(doc) - numdiff) + numdiff))
 				srow = prow;
 			break;
+		case 'g':
+			setmark('\'');
+			if (!loadpage(getcount(1)))
+				srow = prow;
+			break;
 		case 'O':
 			numdiff = num - getcount(num);
 			setmark('\'');
