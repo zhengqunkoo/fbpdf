@@ -29,6 +29,7 @@
 #define MAX(a, b)	((a) > (b) ? (a) : (b))
 
 #define PAGESTEPS	8
+#define MINZOOM		10
 #define MAXZOOM		100
 #define MARGIN		1
 #define CTRLKEY(x)	((x) - 96)
@@ -91,7 +92,7 @@ static int loadpage(int p)
 
 static void zoom_page(int z)
 {
-	int _zoom = zoom;
+	int _zoom = MAX(MINZOOM, zoom);
 	zoom = MIN(MAXZOOM, MAX(1, z));
 	if (!loadpage(num))
 		srow = srow * zoom / _zoom;
