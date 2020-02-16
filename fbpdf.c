@@ -246,6 +246,23 @@ static void mainloop(void)
 			if (isdigit(c))
 				count = count * 10 + c - '0';
 		}
+		if (c == '\x1b') {	/* terminal input sequence */
+			readkey();
+			switch (readkey()) {
+			case 'A':
+				c = 'k';
+				break;
+			case 'B':
+				c = 'j';
+				break;
+			case 'C':
+				c = 'l';
+				break;
+			case 'D':
+				c = 'h';
+				break;
+			}
+		}
 		switch (c) {	/* commands that require redrawing */
 		case CTRLKEY('f'):
 		case 'J':
