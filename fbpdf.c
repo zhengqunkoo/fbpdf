@@ -225,6 +225,8 @@ static void mainloop(void)
 	int hstep = scols / PAGESTEPS;
 	int c;
 	int j;
+	int srowmin;
+	int srowmax;
 	term_setup();
 	signal(SIGCONT, sigcont);
 	loadpage(num);
@@ -383,7 +385,15 @@ static void mainloop(void)
 		default:	/* no need to redraw */
 			continue;
 		}
-		srow = MAX(prow - srows + MARGIN, MIN(prow + prows - MARGIN, srow));
+		srowmin = prow + prows - MARGIN;
+		srowmax = prow - srows + MARGIN;
+		srow = MAX(srowmax, MIN(srowmin, srow));
+		if (srow == srowmax)
+			if (!loadpage(num - getcount(1)))
+				srow = prow + prows;
+		if (srow == srowmin)
+			if (!loadpage(num + getcount(1)))
+				srow = prow;
 		scol = MAX(pcol - scols + MARGIN, MIN(pcol + pcols - MARGIN, scol));
 		draw();
 		if (toggleinfo)
