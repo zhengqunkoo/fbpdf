@@ -81,16 +81,38 @@ static int loadpage(int p)
 {
 	int i, j;
 	int xp;		/* number of pages to be loaded that exceeds number of pages of document */
+	int dp;		/* number of pages changed wrt page number */
 	if (p < 1 || p > doc_pages(doc))
 		return 1;
 	lp = np;
 	xp = (p + np - 1) - doc_pages(doc);
 	if (xp > 0)
 		lp -= xp;	/* if any excess pages, then do not load this excess number of pages */
+	dp = p - num;
 	prows = 0;
-	pbufs = malloc(lp * sizeof(fbval_t*));
-	for (j = 0; j < lp; j++)
-		pbufs[j] = doc_draw(doc, p+j, zoom, rotate, &prows, &pcols);
+	/*
+	 * Free off-screen pages.
+	 * Copy existing pages.
+	 * Draw new pages.
+	 */
+	if (dp > 0) {
+		for (j = 0; j < MIN(lp, dp); j++)
+			free(pbufs[j]);
+		for (j = 0; j < lp - dp; j++)
+			pbufs[j] = pbufs[j + dp];
+		for (j = MAX(0, lp - dp); j < lp; j++)
+			pbufs[j] = doc_draw(doc, p+j, zoom, rotate, &prows, &pcols);
+	} else if (dp < 0) {
+		for (j = MAX(0, lp + dp); j < lp; j++)
+			free(pbufs[j]);
+		for (j = lp + dp - 1; j >= 0; j--)
+			pbufs[j - dp] = pbufs[j];
+		for (j = 0; j < MIN(lp, -dp); j++)
+			pbufs[j] = doc_draw(doc, p+j, zoom, rotate, &prows, &pcols);
+	} else {
+		for (j = 0; j < lp; j++)
+			pbufs[j] = doc_draw(doc, p+j, zoom, rotate, &prows, &pcols);
+	}
 	if (invert) {
 		for (j = 0; j < lp; j++)
 			for (i = 0; i < prows * pcols; i++)
@@ -229,6 +251,7 @@ static void mainloop(void)
 	int srowmax;
 	term_setup();
 	signal(SIGCONT, sigcont);
+	pbufs = malloc(np * sizeof(fbval_t*));
 	loadpage(num);
 	srow = prow;
 	scol = -scols / 2;
@@ -399,7 +422,7 @@ static void mainloop(void)
 		if (toggleinfo)
 			printinfo();
 	}
-	for (j = 0; j < lp; j++)
+	for (j = 0; j < np; j++)
 		free(pbufs[j]);
 	free(pbufs);
 	term_cleanup();
