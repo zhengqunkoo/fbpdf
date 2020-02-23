@@ -15,6 +15,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#include <sys/ioctl.h>
 #include <ctype.h>
 #include <signal.h>
 #include <stdio.h>
@@ -170,9 +171,13 @@ static int getcount(int def)
 
 static void printinfo(void)
 {
+	int length;
+	struct winsize w;
+	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+	length = w.ws_col - 43;		/* assume page number under 1000, zoom number under 1000% */
 	printf("\x1b[%d;%dH", srows, 0);
-	printf("FBPDF:     file:%s  page:%d(%d)  zoom:%d%% \x1b[K\r",
-		filename, num, doc_pages(doc), zoom * 10);
+	printf("FBPDF:     file:%*.*s  page:%d(%d)  zoom:%d%% \x1b[K\r",
+		length, length, filename, num, doc_pages(doc), zoom * 10);
 	fflush(stdout);
 }
 
