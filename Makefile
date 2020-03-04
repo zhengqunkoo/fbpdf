@@ -3,18 +3,20 @@ CC = cc
 CFLAGS = -Wall -O2 -I$(PREFIX)/include
 LDFLAGS = -L$(PREFIX)/lib
 
-all: fbpdf fbdjvu
+all: dev-input-mice/mouse.o fbpdf fbdjvu
 %.o: %.c doc.h
 	$(CC) -c $(CFLAGS) $<
 clean:
-	-rm -f *.o fbpdf fbdjvu fbpdf2
+	-rm -f *.o fbpdf fbdjvu fbpdf2; cd dev-input-mice; make clean
 
+dev-input-mice/mouse.o:
+	cd dev-input-mice; make all
 # pdf support using mupdf
-fbpdf: fbpdf.o mupdf.o draw.o
-	$(CC) -o $@ $^ $(LDFLAGS) -lz -lfreetype -lharfbuzz -ljbig2dec -lopenjp2 -ljpeg -lmupdf -lmupdf-third -lmupdf-pkcs7 -lmupdf-threads -lm
+fbpdf: fbpdf.o mupdf.o draw.o dev-input-mice/mouse.o
+	$(CC) -o $@ $^ $(LDFLAGS) -lz -lfreetype -lharfbuzz -ljbig2dec -lopenjp2 -ljpeg -lmupdf -lmupdf-third -lmupdf-pkcs7 -lmupdf-threads -lm -lpthread
 
 # djvu support
-fbdjvu: fbpdf.o djvulibre.o draw.o
+fbdjvu: fbpdf.o djvulibre.o draw.o dev-input-mice/mouse.o
 	$(CXX) -o $@ $^ $(LDFLAGS) -ldjvulibre -ljpeg -lm -lpthread
 
 # pdf support using poppler

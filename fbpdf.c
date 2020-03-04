@@ -15,6 +15,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#include <linux/input.h>
 #include <ctype.h>
 #include <signal.h>
 #include <stdio.h>
@@ -22,8 +23,10 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+#include <pthread.h>
 #include "draw.h"
 #include "doc.h"
+#include "dev-input-mice/mouse.h"
 
 #define MIN(a, b)	((a) < (b) ? (a) : (b))
 #define MAX(a, b)	((a) > (b) ? (a) : (b))
@@ -207,12 +210,79 @@ static int lmargin(void)
 	return ret;
 }
 
+static void safe_pipe(int p[2])
+{
+	if (pipe(p)) {
+		fprintf(stderr, "Pipe failed\n");
+		exit(EXIT_FAILURE);
+	}
+}
+
+static void safe_dup2(int fildes, int fildes2)
+{
+	if (dup2(fildes, fildes2) == -1) {
+		fprintf(stderr, "Dup failed\n");
+		exit(EXIT_FAILURE);
+	}
+}
+
+static void safe_pthread_create(pthread_t *restrict thread, const pthread_attr_t *restrict attr, void *(*start_routine)(void*), void *restrict arg)
+{
+	if (pthread_create(thread, attr, start_routine, arg) == -1) {
+		fprintf(stderr, "Pthread failed\n");
+		exit(EXIT_FAILURE);
+	}
+}
+
+static void *mouse_loop(void *arg)
+{
+	int mouse_f;
+	struct packet p;
+	mouse_f = safe_open_mousefile();
+	init_mouse(mouse_f);
+	while (1) {
+		safe_read(mouse_f, &p, sizeof(p));
+		if (p.b)
+			safe_write(STDOUT_FILENO, "K", 1);
+		if (p.f)
+			safe_write(STDOUT_FILENO, "J", 1);
+		switch (p.z) {
+		case 1:
+			safe_write(STDOUT_FILENO, "j", 1);
+			break;
+		case 2:
+			safe_write(STDOUT_FILENO, "l", 1);
+			break;
+		case 0xE:
+			safe_write(STDOUT_FILENO, "h", 1);
+			break;
+		case 0xF:
+			safe_write(STDOUT_FILENO, "k", 1);
+			break;
+		default:
+			break;
+		}
+	}
+	safe_close(mouse_f);
+	return NULL;
+}
+
+static void keyboard_loop(void)
+{
+	int c;
+	while ((c = readkey()) != -1) {
+		if (c == 'q')
+			break;
+		safe_write(STDOUT_FILENO, &c, 1);
+	}
+	return;
+}
+
 static void mainloop(void)
 {
 	int step = srows / PAGESTEPS;
 	int hstep = scols / PAGESTEPS;
 	int c;
-	term_setup();
 	signal(SIGCONT, sigcont);
 	loadpage(num);
 	srow = prow;
@@ -348,7 +418,6 @@ static void mainloop(void)
 		scol = MAX(pcol - scols + MARGIN, MIN(pcol + pcols - MARGIN, scol));
 		draw();
 	}
-	term_cleanup();
 }
 
 static char *usage =
@@ -357,6 +426,8 @@ static char *usage =
 int main(int argc, char *argv[])
 {
 	int i = 1;
+	int mousekey[2];
+	pthread_t mouse_thread;
 	if (argc < 2) {
 		printf(usage);
 		return 1;
@@ -381,17 +452,35 @@ int main(int argc, char *argv[])
 		}
 	}
 	printinfo();
-	if (fb_init())
-		return 1;
-	srows = fb_rows();
-	scols = fb_cols();
-	if (FBM_BPP(fb_mode()) != sizeof(fbval_t))
-		fprintf(stderr, "fbpdf: fbval_t doesn't match fb depth\n");
-	else
-		mainloop();
-	fb_free();
-	free(pbuf);
-	if (doc)
-		doc_close(doc);
+	safe_pipe(mousekey);
+	if (fork() > 0) {
+		term_setup();
+		int stdout_old = dup(STDOUT_FILENO);
+		safe_close(mousekey[0]);
+		safe_dup2(mousekey[1], STDOUT_FILENO);
+		safe_close(mousekey[1]);
+		safe_pthread_create(&mouse_thread, NULL, &mouse_loop, NULL);
+		keyboard_loop();
+		safe_dup2(stdout_old, STDOUT_FILENO);
+		close(stdout_old);
+		term_cleanup();
+	} else {
+		safe_close(mousekey[1]);
+		safe_dup2(mousekey[0], STDIN_FILENO);
+		safe_close(mousekey[0]);
+		if (fb_init())
+			return 1;
+		srows = fb_rows();
+		scols = fb_cols();
+		if (FBM_BPP(fb_mode()) != sizeof(fbval_t))
+			fprintf(stderr, "fbpdf: fbval_t doesn't match fb depth\n");
+		else
+			mainloop();
+		pthread_kill(mouse_thread, SIGINT);
+		fb_free();
+		free(pbuf);
+		if (doc)
+			doc_close(doc);
+	}
 	return 0;
 }
