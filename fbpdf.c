@@ -104,23 +104,30 @@ static int loadpage(int p)
 			free(pbufs[j]);
 		for (j = 0; j < lp - dp; j++)
 			pbufs[j] = pbufs[j + dp];
-		for (j = MAX(0, lp - dp); j < lp; j++)
+		for (j = MAX(0, lp - dp); j < lp; j++) {
 			pbufs[j] = doc_draw(doc, p+j, zoom, rotate, &prows, &pcols);
+			if (invert)
+				for (i = 0; i < prows * pcols; i++)
+					pbufs[j][i] = pbufs[j][i] ^ 0xffffffff;
+		}
 	} else if (dp < 0) {
 		for (j = MAX(0, lp + dp); j < lp; j++)
 			free(pbufs[j]);
 		for (j = lp + dp - 1; j >= 0; j--)
 			pbufs[j - dp] = pbufs[j];
-		for (j = 0; j < MIN(lp, -dp); j++)
+		for (j = 0; j < MIN(lp, -dp); j++) {
 			pbufs[j] = doc_draw(doc, p+j, zoom, rotate, &prows, &pcols);
+			if (invert)
+				for (i = 0; i < prows * pcols; i++)
+					pbufs[j][i] = pbufs[j][i] ^ 0xffffffff;
+		}
 	} else {
-		for (j = 0; j < lp; j++)
+		for (j = 0; j < lp; j++) {
 			pbufs[j] = doc_draw(doc, p+j, zoom, rotate, &prows, &pcols);
-	}
-	if (invert) {
-		for (j = 0; j < lp; j++)
-			for (i = 0; i < prows * pcols; i++)
-				pbufs[j][i] = pbufs[j][i] ^ 0xffffffff;
+			if (invert)
+				for (i = 0; i < prows * pcols; i++)
+					pbufs[j][i] = pbufs[j][i] ^ 0xffffffff;
+		}
 	}
 	prow = -prows / 2;
 	pcol = -pcols / 2;
