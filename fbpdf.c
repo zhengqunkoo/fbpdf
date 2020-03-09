@@ -258,6 +258,22 @@ static void mainloop(void)
 			case 'D':
 				c = 'h';
 				break;
+			case '1':
+				c = 'g';
+				readkey();
+				break;
+			case '4':
+				c = 'G';
+				readkey();
+				break;
+			case '5':
+				c = 'K';
+				readkey();
+				break;
+			case '6':
+				c = 'J';
+				readkey();
+				break;
 			}
 		}
 		switch (c) {	/* commands that require redrawing */
