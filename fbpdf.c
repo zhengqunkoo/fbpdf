@@ -152,16 +152,13 @@ static void setmark(int c)
 	}
 }
 
-static void jmpmark(int c, int offset)
+static void jmpmark(int c)
 {
-	if (c == '`')
-		c = '\'';
 	if (ISMARK(c) && mark[c]) {
 		int dst = mark[c];
-		int dst_row = offset ? mark_row[c] * zoom : 0;
 		setmark('\'');
 		if (!loadpage(dst))
-			srow = offset ? dst_row : prow;
+			srow = mark_row[c] * zoom;
 	}
 }
 
@@ -486,9 +483,8 @@ static void mainloop(void)
 			if (!loadpage(num))
 				srow = prow;
 			break;
-		case '`':
 		case '\'':
-			jmpmark(readkey(), c == '`');
+			jmpmark(readkey());
 			break;
 		case 'j':
 			srow += step * getcount(1);
