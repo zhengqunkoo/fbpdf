@@ -24,6 +24,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <errno.h>
 #include "draw.h"
 #include "doc.h"
 #include "dev-input-mice/mouse.h"
@@ -122,7 +123,7 @@ static void jmpmark(int c, int offset)
 	}
 }
 
-static int readkey(void)
+static unsigned char readkey(void)
 {
 	unsigned char b;
 	if (read(0, &b, 1) <= 0)
@@ -234,14 +235,33 @@ static void safe_pthread_create(pthread_t *restrict thread, const pthread_attr_t
 	}
 }
 
+static long safe_strtol(const char *restrict str, char **restrict endptr, int base)
+{
+	long res = strtol(str, endptr, base);
+	if (str == *endptr) {
+		fprintf(stderr, "No digits found\n");
+		exit(EXIT_FAILURE);
+	}
+	if (res == 0 && errno != 0) {
+		fprintf(stderr, "Wrong escape code\n");
+		exit(EXIT_FAILURE);
+	}
+	return res;
+}
+
 static void *mouse_loop(void *arg)
 {
 	int mouse_f;
 	struct packet p;
+	char *s = malloc(14*sizeof(char));
 	mouse_f = safe_open_mousefile();
 	init_mouse(mouse_f);
 	while (1) {
 		safe_read(mouse_f, &p, sizeof(p));
+		if (p.m) {
+			sprintf(s, "\x1b[m%d;%df", p.x, p.y);
+			safe_write(STDOUT_FILENO, s, strlen(s));
+		}
 		if (p.b)
 			safe_write(STDOUT_FILENO, "K", 1);
 		if (p.f)
@@ -264,6 +284,7 @@ static void *mouse_loop(void *arg)
 		}
 	}
 	safe_close(mouse_f);
+	free(s);
 	return NULL;
 }
 
@@ -282,7 +303,10 @@ static void mainloop(void)
 {
 	int step = srows / PAGESTEPS;
 	int hstep = scols / PAGESTEPS;
-	int c;
+	char c;
+	int j;
+	char *s = malloc(10*sizeof(char));
+	char *t;
 	signal(SIGCONT, sigcont);
 	loadpage(num);
 	srow = prow;
@@ -315,6 +339,25 @@ static void mainloop(void)
 		default:
 			if (isdigit(c))
 				count = count * 10 + c - '0';
+		}
+		if (c == '\x1b') {	/* terminal input sequence */
+			readkey();
+			switch (readkey()) {
+			case 'm':	/* assume mouse escape code is well-formed */
+				j = 0;
+				while ((c = readkey()) != -1) {
+					if (c == 'f') {
+						s[j] = '\0';
+						break;
+					}
+					s[j] = c;
+					j++;
+				}
+				scol += safe_strtol(s, &t, 0);
+				srow -= safe_strtol(t+1, &t, 0);	/* skip ';' */
+				c = CTRLKEY('l');	/* redraw */
+				break;
+			}
 		}
 		switch (c) {	/* commands that require redrawing */
 		case CTRLKEY('f'):
@@ -418,6 +461,7 @@ static void mainloop(void)
 		scol = MAX(pcol - scols + MARGIN, MIN(pcol + pcols - MARGIN, scol));
 		draw();
 	}
+	free(s);
 }
 
 static char *usage =
