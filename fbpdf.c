@@ -313,12 +313,6 @@ static void *mouse_loop(void *arg)
 		case 1:
 			safe_write(STDOUT_FILENO, "j", 1);
 			break;
-		case 2:
-			safe_write(STDOUT_FILENO, "l", 1);
-			break;
-		case 0xE:
-			safe_write(STDOUT_FILENO, "h", 1);
-			break;
 		case 0xF:
 			safe_write(STDOUT_FILENO, "k", 1);
 			break;
