@@ -378,9 +378,6 @@ static void mainloop(void)
 		case 'm':
 			setmark(readkey());
 			break;
-		case 'd':
-			sleep(getcount(1));
-			break;
 		default:
 			if (isdigit(c))
 				count = count * 10 + c - '0';
@@ -470,12 +467,12 @@ static void mainloop(void)
 		case '=':
 			zoom_page(zoom_def);
 			break;
-		case 'W':
+		case 's':
 			if (lmargin() < rmargin())
 				zoom_page(zoom * (scols - hstep) /
 					(rmargin() - lmargin()));
 			break;
-		case 'f':
+		case 'a':
 			zoom_page(prows ? zoom * srows / prows : zoom);
 			break;
 		case 'r':
@@ -511,11 +508,11 @@ static void mainloop(void)
 			scol = -scols / 2;
 			break;
 		case ' ':
-		case CTRLKEY('d'):
+		case 'd':
 			srow += srows * getcount(1) - step;
 			break;
 		case 127:
-		case CTRLKEY('u'):
+		case 'u':
 			srow -= srows * getcount(1) - step;
 			break;
 		case '[':
@@ -532,7 +529,7 @@ static void mainloop(void)
 			break;
 		case CTRLKEY('l'):
 			break;
-		case 'I':
+		case 'i':
 			invert = !invert;
 			loadpage(num);
 			break;
